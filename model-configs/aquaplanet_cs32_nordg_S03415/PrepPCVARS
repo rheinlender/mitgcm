@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# This script helps prepare the pc.vars file
+# Total run time and increment time is given 
+# in years and the fitO, fitA and nit-vars are
+# updated accordingly.
+
+# Different freq (checkpoint, monitor, etc)
+# can also be controlled from this scipt
+
+# NB: Make sure that incYrs is an integer times chkptFrqYrs
+
+# ===================================
+#       Edit the following
+# ===================================
+pcfile=pc.vars_5y
+
+echo "pcfile is: $pcfile"
+totYears=5  # Total years to run
+incYears=1  # Yrs pr queue submit
+
+chkptFrqYrs=1 # Freq of checkpoint in yrs
+monitorFreqMonths=1 #Monitorfreq in months
+
+cpl_taveFreqYrs=$chkptFrqYrs  # May be different from chkptFrqYrs (just easy that way)
+thSIce_diagFreqYrs=$chkptFrqYrs
+land_diagFreqYrs=$chkptFrqYrs
+
+# ===================================
+#    In general no edit below here
+# ===================================
+varlist="npcpl npocn exp matscript outDir figOutDir scrDir cplmonitor  \
+         ocnmonitor period iitO iitA fitO fitA nitC nitO nitA nitOonly \
+         pChkptFreq taveFreq cpl_taveFreq dumpFreq monitorFreq         \
+         thSIce_diagFreq landFlag land_diagFreq exC exO exA exOOnly    \
+         cplDir ocnDir atmDir dtA dtO dtC LocalScratch MakePlots"
+source $pcfile
+fitO=$(($iitO+$totYears*360*24))
+fitA=$(($iitA+$totYears*360*24*4))
+nitC=$(($incYears*360*24))
+nitO=$(($incYears*360*24))
+nitA=$(($incYears*360*24*4))
+pChkptFreq=$(($chkptFrqYrs*360*24*3600)).
+cpl_taveFreq=$(($cpl_taveFreqYrs*360*24*3600)).
+monitorFreq=$(($monitorFreqMonths*30*24*3600)).
+thSIce_diagFreq=$(($thSIce_diagFreqYrs*360*24*3600)).
+land_diagFreq=$(($land_diagFreqYrs*360*24*3600)).
+
+rm -f $pcfile
+for i in $varlist; do echo $i'='`eval echo '$'$i` >> $pcfile.temp; done
+mv $pcfile.temp $pcfile
+

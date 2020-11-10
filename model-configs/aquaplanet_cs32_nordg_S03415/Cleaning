@@ -1,0 +1,7 @@
+#!/bin/bash
+
+ if test -f build_cpl/Makefile ; then cd build_cpl ; make CLEAN ; cd .. ; fi
+ if test -f build_ocn/Makefile ; then cd build_ocn ; make CLEAN ; cd .. ; fi
+ if test -f build_atm/Makefile ; then cd build_atm ; make CLEAN ; cd .. ; fi
+
+ rm -f build_???/Makefile

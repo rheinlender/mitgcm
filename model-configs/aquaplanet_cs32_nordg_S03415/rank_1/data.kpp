@@ -1,0 +1,9 @@
+# KPP parameters
+ &KPP_PARM01
+ KPPmixingMaps   = .FALSE.,
+ KPPwriteState   = .TRUE.,
+#KPP_ghatUseTotalDiffus=.TRUE.,
+ minKPPhbl=10.,
+ kpp_taveFreq=622080000.,
+ LimitHblStable=.FALSE.,
+ &

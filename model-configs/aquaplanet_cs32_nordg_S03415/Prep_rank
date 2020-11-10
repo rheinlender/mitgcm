@@ -1,0 +1,43 @@
+#! /usr/bin/env bash
+
+# Prepare run directories.
+# Ocean
+for rank in `seq 2 12`; do
+#       \rm -r rank_$rank
+#       mkdir rank_$rank
+        cd rank_$rank
+        \rm data* eedata *.bin
+	ln -s ../rank_1/data* .
+#        ln -s ../rank_1/data.layers .
+        ln -s ../rank_1/eedata .
+#        ln -s ../rank_1/*.bin .
+        ln -s ../rank_1/boomerang_noRidge_cs32_Bathy_flat.bin .
+        ln -s ../rank_1/boomerang_noRidge_cs32_Tinit.bin .
+        ln -s ../rank_1/boomerang_noRidge_cs32_Sinit.bin .
+        t=`expr $rank - 1`;
+        t_per_r=`expr $t / 2 + 1`
+        echo $rank $t_per_r
+        cp -p ~/MITgcm/JR_runs/aquaplanet_cs32/rank_$rank/dxC1_dXYa.face00$t_per_r.bin .
+        cd ../
+done
+
+# Atmosphere
+for rank in `seq 14 24`; do
+#       \rm -r rank_$rank
+#       mkdir rank_$rank
+        cd rank_$rank
+        \rm data* eedata *.bin
+ 	ln -s ../rank_13/data* .
+	ln -s ../rank_13/eedata .
+#        ln -s ../rank_13/*.bin .
+        ln -s ../rank_13/boomerang_noRidge_cs32_landFrc.bin .
+#        ln -s ../rank_13/boomerang_noRidge_cs32_albedo25pc.bin .
+        ln -s ../rank_13/boomerang_noRidge_cs32_albedo10pc.bin .
+        ln -s ../rank_13/boomerang_noRidge_cs32_vegFrc75pc.bin .
+        t=`expr $rank - 1`;
+        t_per_r=`expr $t / 2 - 5`
+        echo $rank $t_per_r
+        cp -p ~/MITgcm/JR_runs/aquaplanet_cs32/rank_$rank/dxC1_dXYa.face00$t_per_r.bin .
+        cd ../
+done
+

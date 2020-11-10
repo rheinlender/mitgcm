@@ -1,0 +1,15 @@
+#!/bin/bash
+echo 'Cleaning rank directories'
+
+rm -f  rank_0/*.clog
+
+for idir in `seq 24`; do
+    cd rank_$idir
+    rm -f fort* *.nc PI* pickup* *.meta *.data
+    rm -f STDERR.* STDOUT.* *.clog w2_tile_topology.*.log
+    rm -f Bo_surf.* DXC.* DXG.* DYC.* DYG.* Depth.* RAC.* RAS.* RAW.* XC.* XG.* \
+       YC.* YG.* hFacC.* hFacS.* hFacW.* topo_P.* AngleCS* AngleSN* RAZ*     \
+       aim_WeightSurf.* RhoRef.??ta
+    cd ..
+done
+echo 'Cleaning done'

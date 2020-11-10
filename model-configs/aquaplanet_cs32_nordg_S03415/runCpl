@@ -1,0 +1,145 @@
+#!/bin/bash
+#-----------------
+# LIST PBS DIRECTIVES
+#-----------------
+#PBS -A nn4659k
+#PBS -l select=2:ncpus=32:mpiprocs=13
+#PBS -l walltime=02:30:00
+#PBS -M jonathan.rheinlender@uib.no
+#PBS -N nordgGM1200
+#-----------------
+
+#load modules
+module purge
+#module load comp-intel/11.1.046 mpi/mpt.1.25     netcdf/3.6.0/intel
+#module load comp-intel/2011.2 mpi-sgi/mpt.2.04.10789 netcdf/4.0
+#module load comp-intel/2016.2.181 mpi-sgi/mpt.2.14r19 hdf4/4.2.12 hdf5/1.8.18_mpt netcdf/4.4.1.1_mpt
+module load intelcomp/17.0.0
+module load mpt/2.14
+module load netcdf
+module list
+
+#-----------------------------------------------------------------------------#
+#     - Load PC parameters                                                    #
+#     - Determine stop iteration for this period                              #
+#-----------------------------------------------------------------------------#
+runDir=/work/rheinlender/MITgcm/JR_runs/aquaplanet_cs32_b2
+varlist="npcpl npocn exp matscript outDir figOutDir scrDir cplmonitor  \
+         ocnmonitor period iitO iitA fitO fitA nitC nitO nitA nitOonly \
+         pChkptFreq taveFreq cpl_taveFreq dumpFreq monitorFreq         \
+         thSIce_diagFreq landFlag land_diagFreq exC exO exA exOOnly    \
+         cplDir ocnDir atmDir dtA dtO dtC LocalScratch MakePlots"
+cd $runDir
+source pc.vars
+sitO=$(($iitO+$nitO))
+sitA=$(($iitA+$nitA))
+iitO0=`$scrDir/add0upto10c $iitO`
+iitA0=`$scrDir/add0upto10c $iitA`
+sitO0=`$scrDir/add0upto10c $sitO`
+sitA0=`$scrDir/add0upto10c $sitA`
+rm -f $cplmonitor
+echo "Coupled period"                                >  $cplmonitor
+echo "Actual start time, of script:   "`date`         >> $cplmonitor
+echo "Simulation directory:           "$runDir        >> $cplmonitor
+echo "Period:                         "$period        >> $cplmonitor
+echo "Period START iteration:"                        >> $cplmonitor
+echo "    Ocean         "$iitO                        >> $cplmonitor
+echo "    Atmosphere    "$iitA                        >> $cplmonitor
+echo "Period STOP iteration:"                         >> $cplmonitor
+echo "    Ocean         "$sitO                        >> $cplmonitor
+echo "    Atmosphere    "$sitA                        >> $cplmonitor
+echo "Overall FINAL iteration:"                       >> $cplmonitor
+echo "    Ocean         "$fitO                        >> $cplmonitor
+echo "    Atmosphere    "$fitA                        >> $cplmonitor
+
+#-----------------------------------------------------------------------------#
+#     - Set coupled data file, and cpl_taveFreq in the ocean data.cpl file    #
+#     - Set ocean and atmosphere data files                                   #
+#-----------------------------------------------------------------------------#
+. $scrDir/setdatacpl $runDir/$cplDir $runDir/$ocnDir $nitC $cpl_taveFreq
+. $scrDir/setdata $runDir/$ocnDir $iitO $nitO $pChkptFreq \
+                  $taveFreq $dumpFreq $monitorFreq
+. $scrDir/setdata $runDir/$atmDir $iitA $nitA $pChkptFreq \
+                  $taveFreq $dumpFreq $monitorFreq
+. $scrDir/setdatapkg $runDir/$atmDir $thSIce_diagFreq $landFlag $land_diagFreq
+
+#-----------------------------------------------------------------------------#
+#   Move pickup files to ocean rank, copy atmospheric pickup files forward    #
+#-----------------------------------------------------------------------------#
+NpO=12
+NpA=12
+listO=`seq $NpO`
+listA=`seq $(($NpO+1)) $(($NpA+$NpO))`
+
+oldper=$((period-1))
+
+
+  if [ $oldper -eq 0 ]; then
+    echo "Starting from 0: no pickup file to copy"  >> $cplmonitor
+  fi 
+
+  if [ $NpO -eq 1 ]; then
+    cp $outDir/Cpl$oldper/Ocn/pickup.$iitO0.* $ocnDir/.
+  elif [ $NpO -eq 2 ]; then
+    cp $outDir/Cpl$oldper/Ocn/pickup.$iitO0.00[1-3]* \
+       $runDir/rank_1/.
+    cp $outDir/Cpl$oldper/Ocn/pickup.$iitO0.00[4-6]* \
+       $runDir/rank_2/.
+  else
+    for tile in `seq $NpO`; do
+        tile30=`$scrDir/add0upto3c $tile`
+        cp $outDir/Cpl$oldper/Ocn/pickup*$iitO0.$tile30* \
+           $runDir/rank_$tile/.
+    done
+  fi
+  for tile in `seq $NpA`; do
+      tile30=`$scrDir/add0upto3c $tile`
+      cp $outDir/Cpl$oldper/Atm/pickup*$iitA0.$tile30* \
+         $runDir/rank_$((tile+$NpO))/.
+  done
+
+echo "Beginning model execution..."  >> $cplmonitor
+mpiexec_mpt -np    1 ./executables/$exC \
+          : -np $NpO ./executables/$exO \
+          : -np $NpA ./executables/$exA > OECpl$period 2>&1
+status=$?
+echo "Ended with status:  "$status   >> $cplmonitor
+
+#-----------------------------------------------------------------------------#
+#                             Check for pickups                               #
+#-----------------------------------------------------------------------------#
+pickO=rank_1/pickup.$sitO0.001.001.data
+pickA=$atmDir/pickup.$sitA0.001.001.data
+if [ -f $pickO ]; then echo "Ocn pickup present:  "$pickO >> $cplmonitor
+else echo "No Ocn pickup:  "$pickO >> $cplmonitor; exit; fi
+if [ -f $pickA ]; then echo "Atm pickup present:  "$pickA >> $cplmonitor
+else echo "No Atm pickup:  "$pickA >> $cplmonitor; exit; fi
+
+#-----------------------------------------------------------------------------#
+#                       Move old data (just copy pickups)                     #
+#-----------------------------------------------------------------------------#
+. $scrDir/movedataCpl2 $npcpl $runDir $ocnDir $atmDir $outDir \
+                       $period $sitO0 $sitA0 $cplmonitor $NpO $NpA
+
+rm rank_*/pickup*$iitO0*
+rm rank_*/pickup*$iitA0*
+
+#-----------------------------------------------------------------------------#
+#                      Reset periodic coupling parameters                     #
+#-----------------------------------------------------------------------------#
+source pc.vars
+iitO=$sitO
+iitA=$sitA
+period=$(($period+1))
+rm -f pc.vars
+for i in $varlist; do echo $i'='`eval echo '$'$i` >> pc.vars.temp; done
+mv pc.vars.temp pc.vars
+
+#-----------------------------------------------------------------------------#
+#                         Resubmit coupled model                              #
+#-----------------------------------------------------------------------------#
+if [ $iitO -ge $fitO ]; then
+    echo "New iitO exceeds fitO;  All done!" >> $cplmonitor; exit; fi
+if [ $iitA -ge $fitA ]; then
+    echo "New iitA exceeds fitA;  All done!" >> $cplmonitor; exit; fi
+qsub runCpl

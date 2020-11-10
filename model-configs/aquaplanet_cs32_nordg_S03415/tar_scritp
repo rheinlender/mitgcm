@@ -1,0 +1,32 @@
+#! /usr/bin/env bash
+
+iti=963
+itf=964
+
+cd results/
+mkdir Trash_tmp
+for rank in `seq $iti $itf`; do
+  if [ -f Cpl$rank.tarz ]; then 
+    echo "Iteration " Cpl$rank.tarz "already there"
+  else 
+    echo "Iteration " Cpl$rank.tarz "not there, carry on"
+    cp -p Cpl$rank/MON/monitor_*.nc MONITOR
+    rm Cpl$rank/MiscAtm/STDERR.*
+    rm Cpl$rank/MiscAtm/STDOUT.*
+    rm Cpl$rank/MiscOcn/STDERR.*
+    rm Cpl$rank/MiscOcn/STDOUT.*
+    tar -czf Cpl$rank.tarz Cpl$rank >tar_out$rank 2>tar_err$rank
+    status=$?
+    if [ $status -eq 0 ]; then
+       if [ -s tar_err$rank ]; then
+          echo merde
+          exit
+       else
+          mv tar_out$rank tar_err$rank Cpl$rank Trash_tmp
+          echo super $rank
+       fi
+    fi
+  fi
+done
+cd ..
+	
